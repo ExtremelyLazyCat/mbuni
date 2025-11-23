@@ -1,25 +1,34 @@
 Mbuni MMS Gateway, with some new features and restoration work.
 These features have been added:
 - Support for the receiving of PDP context data on the port specified by
-  ```recvpdp-port``` in the MMSC config options. The data passed on the
-  UDP port should be formatted as: ```pdp_add,(IPv4),(MSISDN)``` for
-  additions, or ```pdp_del,(IPv4),(MSISDN)``` for deletions. Currently
+  recvpdp-port in the MMSC config options. The data passed on the
+  UDP port should be formatted as: 
+  ```
+  pdp_add,(IPv4),(MSISDN)
+  ```
+  for additions, or 
+  ```
+  pdp_del,(IPv4),(MSISDN)
+  ```
+  for deletions. Currently
   only IPv4 addresses are supported. The PDP Context table has a default
   size of 65535 entries, which can be increased by modifying PDPSIZE in
   mmsc/mms_recvpdp.c. This feature makes integration with cellular
   network software like Osmocom possible with a couple of patches.
 
 - Support for UAProf URL overrides, enabled by toggling:
-  ```load-uaprof-overrides = yes``` in the MMSC config options. This
+  load-uaprof-overrides = yes in the MMSC config options. This
   will override UAProf URLs sent to the server with a corresponding
   UAProf file, which should specified in uaprof_overrides.txt in the
   running directory of the mmsc program. The format for each line in
   uaprof_overrides.txt should be formatted as such:
-  ```http://example.com/uaprof.rbf=/path/to/local/uaprof.rbf```
+  ```
+  http://example.com/uaprof.rbf=/path/to/local/uaprof.rbf
+  ```
   This is useful mainly for dealing with phones that send UAProf URLs
   that are dead / outdated, where you can't specify a custom UAProf URL
   on the device, or modifying values inside the UAProf file, such as
-  its ```<prf:MmsMaxMessageSize>``` value.
+  its <prf:MmsMaxMessageSize> value.
 
 - Support for 3gpp videos
 
