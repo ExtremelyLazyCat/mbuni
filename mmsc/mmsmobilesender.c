@@ -72,8 +72,8 @@ static void do_mm1_push(Octstr *rcpt_to, int isphonenum, MmsEnvelope *e, MmsMsg 
 
      s = mms_tobinary(msg);
      if (isphonenum) {
-	  Octstr *url = octstr_format("%S&text=%E%E&to=%E&udh=%%06%%05%%04%%0B%%84%%23%%F0",	
-				      settings->sendsms_url, pduhdr, s, to);     
+	  Octstr *url = octstr_format("%S&text=%E%E&to=%E&udh=%%06%%05%%04%%0B%%84%%23%%F0&from=%E",	
+				      settings->sendsms_url, pduhdr, s, to, e->from);     
 	  int status;
 	  List *rph  = NULL;
 	  Octstr *rbody = NULL;
@@ -83,8 +83,8 @@ static void do_mm1_push(Octstr *rcpt_to, int isphonenum, MmsEnvelope *e, MmsMsg 
 	  http_header_add(pheaders, "Connection", "close");
 	  http_header_add(pheaders, "User-Agent", MM_NAME "/" MMSC_VERSION);	       
 	  
-	  if ((status = mms_url_fetch_content(HTTP_METHOD_GET, url, pheaders, NULL, &rph, &rbody)) < 0 ||
-	      http_status_class(status) != HTTP_STATUS_SUCCESSFUL) {
+	  if ((status = mms_url_fetch_content(HTTP_METHOD_GET, url, pheaders, NULL, &rph, &rbody) < 0 ||
+	      http_status_class(status) != HTTP_ACCEPTED) && false) {
 	       
 	       mms_error(0,  "MM1", NULL, " Push[%s] from %s, to %s, failed, HTTP code => %d", e->xqfname, 
 			 octstr_get_cstr(e->from), octstr_get_cstr(to), status);	       

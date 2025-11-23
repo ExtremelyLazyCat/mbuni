@@ -240,7 +240,7 @@ void fetchmms_proxy(MmsHTTPClientInfo *h)
      }
 
      if (h->profile_url) {
-	  prof = mms_get_ua_profile(octstr_get_cstr(h->profile_url));
+	  prof = mms_get_ua_profile(octstr_get_cstr(h->profile_url), settings->uaprof_overrides);
 	  if (!prof)
 	       prof = mms_make_ua_profile(h->headers);
      } else
@@ -1392,7 +1392,7 @@ static void sendmms_proxy(MmsHTTPClientInfo *h)
 	     * why bother when send knows them? 
 	     */
 	    if (h->profile_url && 
-		(prof = mms_get_ua_profile(octstr_get_cstr(h->profile_url))) != NULL) {
+		(prof = mms_get_ua_profile(octstr_get_cstr(h->profile_url), settings->uaprof_overrides)) != NULL) {
 		 int i, n;
 
 		 for (i = 0, n = msgs ? gwlist_len(msgs) : 0; i<n; i++) { /* Make message references. */

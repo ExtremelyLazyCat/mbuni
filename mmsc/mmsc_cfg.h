@@ -77,7 +77,7 @@ typedef struct MmscSettings {
      double queue_interval, mm1_queue_interval;
      long send_back_off;
      
-     long port, mm7port;
+     long port, mm7port, pdpPort;
 
      Octstr *allow_ip;
      Octstr *deny_ip;
@@ -105,6 +105,7 @@ typedef struct MmscSettings {
      int optimize_notification_size;
      int content_adaptation;
      int dlr_on_fetch;
+	 int load_uaprof_overrides;
 
      Octstr *prov_notify;
 
@@ -127,6 +128,8 @@ typedef struct MmscSettings {
      MmsVasp *mms2email, *mms2mobile; 
 
      MmscMM5FuncStruct *mm5; /* If we have loaded an mm5 module, this is it. */
+	 
+	 List *uaprof_overrides;
      
      /* Stuff for the admin interface. */
      long admin_port;

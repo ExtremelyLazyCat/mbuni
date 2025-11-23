@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include "mmsc_cfg.h"
 #include "mms_queue.h"
-
+#include "mms_recvpdp.h"
 
 #define MMS_PORT 8191  /* Default content fetch port. */
 
@@ -30,6 +30,8 @@ static void free_vasp(MmsVasp *m);
 
 static void delete_stale_vasps(MmscSettings *settings, int delete_all);
 static void admin_handler(MmscSettings *settings);
+static List* get_uaprof_overrides();
+
 void mms_cleanup_mmsc_settings(MmscSettings *settings)
 {
      /* eventually we will destroy the object. */
@@ -103,6 +105,9 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
 
      m->hostname = mms_cfg_get(cfg, grp, octstr_imm("hostname"));
 
+	 m->pdpPort = -1;
+     mms_cfg_get_int(cfg, grp, octstr_imm("recvpdp-port"), &m->pdpPort);
+  
      if (octstr_len(m->hostname) == 0)
 	  m->hostname = octstr_create("localhost");
      
@@ -366,6 +371,11 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
      if (mms_cfg_get_bool(cfg, grp, octstr_imm("send-dlr-on-fetch"), &m->dlr_on_fetch) < 0)
 	  m->dlr_on_fetch = 0;
      
+	 if (mms_cfg_get_bool(cfg, grp, octstr_imm("load-uaprof-overrides"), &m->load_uaprof_overrides) < 0)
+	  m->load_uaprof_overrides = 0;
+
+     if (m->load_uaprof_overrides)
+	  m->uaprof_overrides = get_uaprof_overrides();
 
      octstr_destroy(qdir);
      
@@ -393,6 +403,7 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
 
 	  mms_cfg_destroy_grp(cfg, xgrp);
      }
+	 
      gwlist_destroy(l, NULL);
 
      /* Now load & start admin interface. */
@@ -582,6 +593,37 @@ done:
      return ret;
 }
 
+static List *get_uaprof_overrides() {
+     Octstr *sf;
+     List *lines;
+	 List *overrides;
+     int i, n;
+
+     overrides = gwlist_create();
+
+     if ((sf = octstr_read_file("uaprof_overrides.txt")) == NULL) {
+        mms_error(errno, "mms_cfg", NULL, "failed to open uaprof_overrides.txt");
+        return NULL;
+     }
+
+    lines = octstr_split(sf, octstr_imm("\n"));    
+    for (i = 0, n = gwlist_len(lines); i < n; i++) {
+	  Octstr *current = gwlist_get(lines,i);
+	  int pos;
+	  	  
+	  if ((pos = octstr_search_char(current, '=',0)) > 0) {
+	       Octstr *url = octstr_copy(current,0,pos);
+	       Octstr *override = octstr_copy(current,pos+1,octstr_len(current));
+		   mms_info(0, "mms_cfg", NULL, "Loading uaprof override for profile URL: %s->%s", octstr_get_cstr(url), 
+		     octstr_get_cstr(override));
+			 
+		   gwlist_append(overrides, current);
+	  }
+	}
+	
+	return overrides;
+}
+
 List *mms_proxy_relays(mCfg *cfg, Octstr *myhostname)
 {
      List *gl = mms_cfg_get_multi(cfg, octstr_imm("mmsproxy"));
@@ -679,6 +721,7 @@ static Octstr *xfind_one_header(List *req_hdrs, List *hdr_names)
      return NULL;
 }
 
+
 Octstr *mms_find_sender_msisdn(Octstr *send_url, 
 			       Octstr *ip,
 			       List *request_hdrs, 
@@ -707,9 +750,15 @@ Octstr *mms_find_sender_msisdn(Octstr *send_url,
 	  gwlist_destroy(l, (gwlist_item_destructor_t *)octstr_destroy);
 	  octstr_destroy(xip);
      }
-     
+     if (phonenum == NULL || octstr_len(phonenum) == 0) {
+	  const char* pdpMSISDN = ipToMSISDN(octstr_get_cstr(ip));
+	  if (pdpMSISDN)
+		phonenum = octstr_create(pdpMSISDN);
+     }
+
      return phonenum;     
 }
+
 
 Octstr *mms_find_sender_ip(List *request_hdrs, List *ip_header, Octstr *ip, int *isv6)
 {

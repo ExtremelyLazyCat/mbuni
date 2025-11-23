@@ -26,7 +26,7 @@ extern int mms_start_profile_engine(char *cache_dir);
 extern int mms_stop_profile_engine(void);
 
 /* Gets the profile. Returns NULL if not cached or not existent. */
-extern MmsUaProfile *mms_get_ua_profile(char *url);
+extern MmsUaProfile *mms_get_ua_profile(char *url, List *overrides);
 
 /* Make a UA Profile out of the Accept HTTP headers. */
 extern MmsUaProfile *mms_make_ua_profile(List *req_headers);

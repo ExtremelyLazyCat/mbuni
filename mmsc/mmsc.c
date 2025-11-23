@@ -13,6 +13,7 @@
 #include <signal.h>
 #include "mmsc.h"
 #include "mms_uaprof.h"
+#include "mms_recvpdp.h"
 
 MmscSettings *settings;
 List *proxyrelays;
@@ -82,7 +83,9 @@ int main(int argc, char *argv[])
 	      (settings->svc_list & SvcRelay) ? " Relay" : "",
 	      (settings->svc_list & (SvcMM1 | SvcMM7 | SvcRelay)) ? "" : " None");
      mms_info(0,  "mmsc", NULL, "----------------------------------------");
-	  
+
+     startPDPListener(settings->pdpPort);
+
      if ((r_thread = gwthread_create((gwthread_func_t *)mmsrelay, NULL)) < 0)
 	  panic(0, "Failed to start MMSC Relay component!");
      

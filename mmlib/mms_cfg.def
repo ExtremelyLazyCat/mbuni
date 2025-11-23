@@ -100,6 +100,8 @@ SINGLE_GROUP(mbuni,
         OCTSTR(optimize-notification-size)
 	OCTSTR(content-adaptation)
 	OCTSTR(send-dlr-on-fetch)
+	OCTSTR(load-uaprof-overrides)
+	OCTSTR(recvpdp-port)
 	OCTSTR(sendmms-port)
 	OCTSTR(sendmms-port-ssl)
 	

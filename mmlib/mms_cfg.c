@@ -403,7 +403,7 @@ int mms_cfg_get_int(mCfg *cfg, mCfgGrp *grp, Octstr *name, long *n)
 }
 
 
-int mms_cfg_get_bool(mCfg *cfg, mCfgGrp *grp, Octstr *name, int *bool)
+int mms_cfg_get_bool(mCfg *cfg, mCfgGrp *grp, Octstr *name, int *bool1)
 {
      Octstr *val = mms_cfg_get(cfg, grp, name);
      int ret = 0;
@@ -413,11 +413,11 @@ int mms_cfg_get_bool(mCfg *cfg, mCfgGrp *grp, Octstr *name, int *bool)
      if (octstr_str_case_compare(val, "yes") == 0 ||
 	 octstr_str_case_compare(val, "true") == 0 ||
 	 octstr_str_case_compare(val, "1") == 0)
-	  *bool = 1;
+	  *bool1 = 1;
      else if (octstr_str_case_compare(val, "no") == 0 ||
 	 octstr_str_case_compare(val, "false") == 0 ||
 	 octstr_str_case_compare(val, "0") == 0)
-	  *bool = 0;
+	  *bool1 = 0;
      else {
 	  Octstr *grp_name = cfg->xcfg ? cfg->cfg_funcs->get_grp_name(cfg->xcfg, grp) :
 	       octstr_duplicate(grp->name);

@@ -103,7 +103,7 @@ int mms_load_core_settings(mCfg *cfg, mCfgGrp *cgrp)
 	  gwlist_destroy(exceptions, octstr_destroy_item);
      }
 
-#ifdef HAVE_LIBSSL
+#if 0
      /* We expect that gwlib_init() has been called already, so only need
       * to setup cert files.
       * -- adapted from gwlib/conn.c

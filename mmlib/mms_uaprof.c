@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "mms_uaprof.h"
 #include "mms_util.h"
@@ -427,19 +428,44 @@ static int mms_load_ua_profile_cache(char *dir)
 }
 
 
-static MmsUaProfile *profile_fetch(Octstr *profile_url)
+static MmsUaProfile *profile_fetch(Octstr *profile_url, List *overrides)
 {
      Octstr *body = NULL;
-     List *h, *rh = NULL;
-     int status;
+     List *h = NULL, *rh = NULL;
+     int status, i, n;
      MmsUaProfile *prof;
 
      gw_assert(profile_dict);
      
-     debug("mms.uaprof", 0, "Entered fetcher");  
-
+     debug("mms.uaprof", 0, "Entered fetcher"); 
+	 
+	 
      if ((prof = dict_get(profile_dict, profile_url)) != NULL) 
 	  return prof;
+     
+	 for (i = 0, n = gwlist_len(overrides); i<n; i++) {
+	    Octstr *current = gwlist_get(overrides,i);
+	    int pos;
+	  	  
+	    if ((pos = octstr_search_char(current, '=',0)) > 0) {
+	       Octstr *url = octstr_copy(current,0,pos);
+		   Octstr *override = octstr_copy(current,pos+1,octstr_len(current)); 
+		   
+		   if (octstr_search(profile_url, url, 0) > -1) {
+	          mms_info(0, "mms_uaprof", NULL, "Found uaprof override for profile URL: %s->%s, loading", octstr_get_cstr(url), 
+                        octstr_get_cstr(override));  
+						
+	          if ((body = octstr_read_file(octstr_get_cstr(override))) == NULL) {
+			     mms_error(errno, "mms_cfg", NULL, "failed to open profile override %s", octstr_get_cstr(override));
+			     break;
+		      }
+			  
+		      prof = parse_uaprofile(body);
+	  	      goto parse;
+		   }
+	    }
+	
+	  }
 
      h = http_create_empty_headers();
      http_header_add(h, "User-Agent", MM_NAME "/" MMSC_VERSION);	       
@@ -447,7 +473,8 @@ static MmsUaProfile *profile_fetch(Octstr *profile_url)
      status = mms_url_fetch_content(HTTP_METHOD_GET, profile_url, h, NULL, &rh, &body);   
      if (http_status_class(status) == HTTP_STATUS_SUCCESSFUL) {
 	  prof = parse_uaprofile(body);
-	  
+
+parse:	  
 	  debug("mms.uaprof", 0, "Fetcher got %s", octstr_get_cstr(profile_url));	  
 	  if (prof) {
 	       if (dict_put_once(profile_dict, profile_url, prof) != 1)
@@ -476,10 +503,12 @@ static MmsUaProfile *profile_fetch(Octstr *profile_url)
      }  else 
 	  prof = NULL;     
 
-     octstr_destroy(body);
-
-     if (h) http_destroy_headers(h);
-     if (rh) http_destroy_headers(rh);
+     if (body)
+	 octstr_destroy(body);
+     if (h)
+    	 http_destroy_headers(h);
+     if (rh)
+	 http_destroy_headers(rh);
      
      return prof;
 }
@@ -514,13 +543,13 @@ int mms_stop_profile_engine(void)
      return 0;
 }
 
-MmsUaProfile *mms_get_ua_profile(char *url)
+MmsUaProfile *mms_get_ua_profile(char *url, List *overrides)
 {
      Octstr *s = octstr_create(url);
      MmsUaProfile *prof = NULL;
 
      gw_assert(profile_dict);
-     prof = profile_fetch(s);
+     prof = profile_fetch(s, overrides);
      octstr_destroy(s);
      return prof;
 }
@@ -543,7 +572,7 @@ struct {
      
      char *file_ext; /* Standard file extension. */
      int multi_image; /* whether this format allows for multiple images in one file. */
-     enum {TIMAGE=1,TAUDIO,TTEXT,TPRES,TOTHER} t;
+     enum {TIMAGE=1,TAUDIO,TTEXT,TPRES,TVIDEO,TOTHER} t;
 } cformats[] = { 
      /* Note: Order of listing matters: 
       * For images, we prefer jpeg (smaller, better support),
@@ -554,8 +583,11 @@ struct {
      {"image/jpg", 0, "jpegtopnm", "pnmtojpeg", "jpg", 0, TIMAGE},
      {"image/tiff", 0, "tifftopnm", "pnmtotiff", "tiff", 1, TIMAGE},
 
+
+     {"video/3gpp", 0, "", "", "", 1, TVIDEO},  //no encoder for 3gpp yet, hopefully all devices handle it correctly
+
      {"image/gif", 0, "giftopnm", "pnmquant 256 | ppmtogif", "gif", 1, TIMAGE},
-     {"image/bmp", 0, "bmptopnm", "pnmquant 256 | ppmtobmp", "bmp", 1, TIMAGE},
+     {"image/bmp", 0, "", "", "3gpp", 1, TIMAGE},
      {"image/vnd.wap.wbmp", 0, "wbmptopbm", "ppmtopgm | pgmtopbm | pbmtowbmp", "wbmp", 0, TIMAGE},
 #if 0
      {"image/x-bmp", 0, "bmptopnm", "pnmtobmp", "bmp", 0, TIMAGE},
@@ -599,6 +631,8 @@ static void init_format_table(void)
 /* Removes an object by making it text/plain. For now not configurable. */
 static void remove_object(MIMEEntity *m, Octstr *ctype)
 {
+     mms_warning(0, "mms_msg", NULL, "my buhhh so stankkk");
+     printf("stank buhhhh");
      List *h = mime_entity_headers(m);
      Octstr *s = octstr_format("Unsupported object (content type %S) removed", ctype);
 
@@ -685,6 +719,8 @@ static void replace_body(MIMEEntity *msg, Octstr *newbody, List *params_h,
      http_destroy_headers(h);
      octstr_destroy(new_partname);
 }
+
+static int format_special(MIMEEntity *m, int trans_smil, char *txtmsg, char *htmlmsg, int *counter);
 
 /* Modify the message based on the user agent profile data. Return 1 if was supported, 0
  * otherwise 
@@ -775,11 +811,20 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
      else if (octstr_case_search(content_type, octstr_imm("audio/"), 0) == 0)
 	  type = TAUDIO;
      else if (octstr_case_search(content_type, octstr_imm("text/"), 0) == 0)
-	  type = TTEXT;
+	  /*type = TTEXT;*/return 1;
+	 else if (octstr_case_search(content_type, octstr_imm("video/"), 0) == 0)
+	  type = TVIDEO;
+     else if (octstr_case_search(content_type, octstr_imm(PRES_TYPE), 0) == 0)
+	  return 1;
      else
 	  type = TOTHER;
 
-
+	 if (type == TVIDEO) { 
+		if(octstr_str_compare(content_type, "video/3gpp") == 0) { //no handling for video files yet, hoping 3gpp is encoded corretly
+			supported = 1;
+			goto done;
+		}
+	 }
      if (type == TTEXT) { /* Deal with charset issues. */
 	  Octstr *charset = http_header_value(params_h, octstr_imm("charset")); 
 	  char csupport = 0;
@@ -848,7 +893,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  goto done; /* If it is supported, go away now. 
 		      * But for images we defer since we might have to  scale the image.
 		      */
-     else if (type == TOTHER) 
+     else if (type == TOTHER)
 	  goto done; /* Not supported and not audio or image, will be removed at done. */
 
      
@@ -872,7 +917,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
      oindex = -1;
      for (i = 0; i < NELEMS(cformats); i++)
 	  if (cformats[i].fromstandard_cmd) /* Check only ones we can convert from. */
-	       for (j = 0, m = gwlist_len(prof->ccppaccept.content); j<m; j++) 
+	       for (j = 0, m = gwlist_len(prof->ccppaccept.content); j<m; j++) {
 		    if ((unsigned long)gwlist_get(prof->ccppaccept._hash,j) == cformats[i].chash &&
 			cformats[i].t == type && /* Convert to like type ! */
 			octstr_case_compare(gwlist_get(prof->ccppaccept.content,j),
@@ -881,6 +926,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 			 i = NELEMS(cformats); /* So the other loop breaks too. */
 			 break;
 		    }
+     }
      
      
      if (iindex < 0 || oindex < 0)  /* We don't know how to convert this one fully, so... */
@@ -897,16 +943,16 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  
 	  mktmpfname(tmpf2);	  
 	  pf = fopen(tmpf2, "w");
-	  if (!pf) 
-	       goto done;
+	  if (!pf) {
+	       goto done; }
 	  
 	  s = mime_entity_body(msg);
 	  n = octstr_print(pf, s);
 	  m = fclose(pf);
 
 	  octstr_destroy(s);
-	  if (n < 0 || m != 0)
-	       goto done; /* error .*/
+	  if (n < 0 || m != 0) {
+	       goto done; /* error .*/ }
 	  
 	  /* Get the image dimensions, see if we need to modify it. */
 	  icmd = octstr_format(IMGRESCMD, 
@@ -915,8 +961,8 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  pf = popen(octstr_get_cstr(icmd), "r");
 	  octstr_destroy(icmd);
 	  
-	  if (!pf)
-	       goto done;
+	  if (!pf) {
+	       goto done; }
 	  fscanf(pf, "%ld %ld", &x, &y);
 	  pclose(pf);
 
@@ -959,7 +1005,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
      }
 
      pf = popen(octstr_get_cstr(cmd), "w");
-
+	 
      if (!pf)
 	  goto done;
      
@@ -980,9 +1026,10 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  octstr_destroy(s);
 	  supported = 1;
 	  goto done2; /* we are done, don't even change headers. */
-     }  else /* failed to convert, hence unsupported. */
+     }
+	 
+	 else /* failed to convert, hence unsupported. */ 
 	  goto done;
-     
 done:
      if (h) 
 	  mime_replace_headers(msg,h);  
