@@ -30,7 +30,7 @@ These features have been added:
   on the device, or modifying values inside the UAProf file, such as
   its <prf:MmsMaxMessageSize> value.
 
-- Support for 3gpp videos
+- Support for 3GPP videos
 
 - Other small fixes for integration with newer releases of Kannel
 
@@ -38,7 +38,7 @@ Build Instructions:
 ```
 git clone https://github.com/ExtremelyLazyCat/mbuni.git --branch pdp-1.0
 cd mbuni
-./bootstrap.sh
+./bootstrap
 ./configure --enable-shared=no LDFLAGS="-no-pie"
 make
 sudo make install
