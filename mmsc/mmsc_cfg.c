@@ -123,6 +123,11 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
      m->unified_prefix = _mms_cfg_getx(cfg, grp, octstr_imm("unified-prefix"));        
      m->local_prefix = _mms_cfg_getx(cfg, grp, octstr_imm("local-prefixes"));        
      
+	 m->load_uaprof_overrides = _mms_cfg_getx(cfg, grp, octstr_imm("load-uaprof-overrides"));
+	 
+	 if (m->load_uaprof_overrides)
+	  m->uaprof_overrides = get_uaprof_overrides(m->load_uaprof_overrides);
+	 
      if ((s = mms_cfg_get(cfg, grp, octstr_imm("strip-prefixes"))) != NULL) {
 	  m->strip_prefixes = octstr_split(s, octstr_imm(";"));
 	  octstr_destroy(s);
@@ -370,12 +375,6 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
 
      if (mms_cfg_get_bool(cfg, grp, octstr_imm("send-dlr-on-fetch"), &m->dlr_on_fetch) < 0)
 	  m->dlr_on_fetch = 0;
-     
-	 if (mms_cfg_get_bool(cfg, grp, octstr_imm("load-uaprof-overrides"), &m->load_uaprof_overrides) < 0)
-	  m->load_uaprof_overrides = 0;
-
-     if (m->load_uaprof_overrides)
-	  m->uaprof_overrides = get_uaprof_overrides();
 
      octstr_destroy(qdir);
      
@@ -593,7 +592,7 @@ done:
      return ret;
 }
 
-static List *get_uaprof_overrides() {
+static List *get_uaprof_overrides(Octstr* filename) {
      Octstr *sf;
      List *lines;
 	 List *overrides;
@@ -601,7 +600,7 @@ static List *get_uaprof_overrides() {
 
      overrides = gwlist_create();
 
-     if ((sf = octstr_read_file("uaprof_overrides.txt")) == NULL) {
+     if ((sf = octstr_read_file(octstr_get_cstr(filename))) == NULL) {
         mms_error(errno, "mms_cfg", NULL, "failed to open uaprof_overrides.txt");
         return NULL;
      }

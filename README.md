@@ -17,13 +17,12 @@ These features have been added:
   network software like Osmocom possible with a couple of patches.
 
 - Support for UAProf URL overrides, enabled by toggling:
-  load-uaprof-overrides = yes in the MMSC config options. This
-  will override UAProf URLs sent to the server with a corresponding
-  UAProf file, which should specified in uaprof_overrides.txt in the
-  running directory of the mmsc program. The format for each line in
-  uaprof_overrides.txt should be formatted as such:
+  load-uaprof-overrides = /path/to/overrides.txt in the MMSC config options.
+  This will override UAProf URLs sent in the X-Wap-Profile header to the
+  server with a corresponding UAProf file.
+  The overrides file should be formatted as such:
   ```
-  http://example.com/uaprof.rbf=/path/to/local/uaprof.rbf
+  http://example.com/uaprof.rbf=/path/to/override/uaprof.rbf
   ```
   This is useful mainly for dealing with phones that send UAProf URLs
   that are dead / outdated, where you can't specify a custom UAProf URL

@@ -55,6 +55,7 @@ typedef struct MmscSettings {
      Octstr *system_user;
      Octstr *name, *hostname, *host_alias;
      Octstr *unified_prefix, *local_prefix;
+	 
 
      List *strip_prefixes;
      
@@ -105,7 +106,8 @@ typedef struct MmscSettings {
      int optimize_notification_size;
      int content_adaptation;
      int dlr_on_fetch;
-	 int load_uaprof_overrides;
+	 
+	 Octstr *load_uaprof_overrides;
 
      Octstr *prov_notify;
 
