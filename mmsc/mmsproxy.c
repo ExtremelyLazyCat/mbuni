@@ -92,29 +92,29 @@ static void mm1proxy(void)
 	       if (!h.base_client_addr) { /* Set to IP sender... XXXX assumes ipv4 only for now*/
 		    if (settings->allow_ip_type) {
 			int ipv6 = 0;
-                        Octstr* sender_ip = mms_find_sender_ip(h.headers,
-                                                              settings->wap_gw_ip_header,
-                                                              h.ip, &ipv6);
+            Octstr* sender_ip = mms_find_sender_ip(h.headers,
+                                                   settings->wap_gw_ip_header,
+                                                   h.ip, &ipv6);
 
-                        /* Retry receiving sender address with WAP IP Header */
-                        Octstr* addr_from_sender_ip = mms_find_sender_msisdn(h.url,
-                                                                            sender_ip,
-                                                                            h.headers,
-                                                                            settings->wap_gw_msisdn_header,
-                                                                            settings->wap_gw_ip_header,
-                                                                            settings->mms_detokenizefuncs);
+            /* Retry receiving sender address with WAP IP Header */
+            Octstr* addr_from_sender_ip = mms_find_sender_msisdn(h.url,
+                                                                sender_ip,
+                                                                h.headers,
+                                                                settings->wap_gw_msisdn_header,
+                                                                settings->wap_gw_ip_header,
+                                                                settings->mms_detokenizefuncs);
 
-                        if (addr_from_sender_ip) {
-                                h.base_client_addr = addr_from_sender_ip;
-                                goto msisdnFixup;
-                        }
+			 if (addr_from_sender_ip) {
+			  h.base_client_addr = addr_from_sender_ip;
+			  goto msisdnFixup;
+			 }
 
-                        else {
-                                h.base_client_addr = sender_ip;
-                                h.client_addr  = octstr_format("%S/TYPE=IPv%s",
-                                                               h.base_client_addr,
-                                                               ipv6 ? "6" : "4");
-                        }
+			 else {
+			  h.base_client_addr = sender_ip;
+			  h.client_addr  = octstr_format("%S/TYPE=IPv%s",
+										     h.base_client_addr,
+									   	     ipv6 ? "6" : "4");
+			 }
 
 		    } else 
 		         h.client_addr = NULL;
