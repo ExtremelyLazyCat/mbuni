@@ -618,6 +618,7 @@ struct {
 #define IMGRESCMD "identify -format '%%w %%h' %s:%s"
 #define IMGSCALECMD "convert -scale '%ldx%ld>' %s:%s %s:-"
 #define IMGCONVERTCMD "convert '%s:%s' '%s:%s'"
+#define JPGCONVERTCMD "ffmpeg -i - -q:v %i '%s'"
 
 static void init_format_table(void)
 {
@@ -720,6 +721,28 @@ static void replace_body(MIMEEntity *msg, Octstr *newbody, List *params_h,
 
 static int format_special(MIMEEntity *m, int trans_smil, char *txtmsg, char *htmlmsg, int *counter);
 
+static int get_num_mime_images(MIMEEntity *msg)
+{
+     int n, i, count;
+	 List *h = NULL;
+	 Octstr *params = NULL, *content_type = NULL;
+     if ((n = mime_entity_num_parts(msg)) > 0) {
+		  for (i = 0; i<n; i++) {
+	        MIMEEntity *x = mime_entity_get_part(msg,i);
+	        count += get_num_mime_images(x);
+		  }
+	 } else {
+		  h = mime_entity_headers(msg);
+		  get_content_type(h, &content_type, &params);
+		  if (octstr_case_search(content_type, octstr_imm("image/"), 0) == 0)
+		    return 1;
+	 }
+	 
+	 return count;
+}
+
+static int num_mime_images;
+
 /* Modify the message based on the user agent profile data. Return 1 if was supported, 0
  * otherwise 
  */
@@ -739,6 +762,8 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
      char tmpf[40], tmpf2[40];
      Octstr *cmd = NULL;
      List *h = NULL;
+	 
+	 int root = 0;
 
      if (!msg) return 0;
 
@@ -764,7 +789,12 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	       List *hx = mime_entity_headers(x);
  	       Octstr *cid = _x_get_content_id(hx);
 	       int sup;
-	       	       
+		   
+		   if (num_mime_images == 0) {
+				num_mime_images = get_num_mime_images(x);
+				root = true;
+		   }
+		   
 	       debug("MMS uaprof: cid =###", 0, "%s", cid ? octstr_get_cstr(cid) : "NULL");
 	       
 	       sup = modify_msg(x, prof);
@@ -800,6 +830,8 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  octstr_destroy(startp);
 	  
 	  supported = 1;
+	  if (root)
+	       num_mime_images = 0;
 	  goto done;
      }
 
@@ -810,7 +842,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  type = TAUDIO;
      else if (octstr_case_search(content_type, octstr_imm("text/"), 0) == 0)
 	  /*type = TTEXT;*/return 1;
-	 else if (octstr_case_search(content_type, octstr_imm("video/"), 0) == 0)
+     else if (octstr_case_search(content_type, octstr_imm("video/"), 0) == 0)
 	  type = TVIDEO;
      else if (octstr_case_search(content_type, octstr_imm(PRES_TYPE), 0) == 0)
 	  return 1;
@@ -818,7 +850,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	  type = TOTHER;
 
 	 if (type == TVIDEO) { 
-		if(octstr_str_compare(content_type, "video/3gpp") == 0) { //no handling for video files yet, hoping 3gpp is encoded corretly
+		if (octstr_str_compare(content_type, "video/3gpp") == 0) { //no handling for video files yet, hoping 3gpp is encoded corretly
 			supported = 1;
 			goto done;
 		}
@@ -966,11 +998,26 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 
 	  icmd = NULL; /* Reset to NULL. */
 	  if (x > prof->maxres.x ||
-	      y > prof->maxres.y)
-	       icmd = octstr_format(IMGSCALECMD, prof->maxres.x, prof->maxres.y, 
+	      y > prof->maxres.y) {
+	       /* This bit of logic retains the original aspect ratio. */
+	       int convX = prof->maxres.x;
+	       int convY = prof->maxres.y;
+	       double aspect = x/y;
+
+	       /* Initially attempt to fit the image to the X-Axis. */
+	       convY = convX / aspect;
+
+	       /* If it's too large still, fit it the other way. */
+	       if (convY > prof->maxres.y) {
+	        convY = prof->maxres.y;
+	        convX = convY * aspect;
+	       }
+
+	       icmd = octstr_format(IMGSCALECMD, convX, convY, 
 				    cformats[iindex].file_ext,
 				    tmpf2,
 				    cformats[iindex].file_ext);
+	  }
 	  else if (supported) /* A supported image format and no need to scale, so go away. */
 	       goto done;
 	  
@@ -984,6 +1031,31 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	   * time to convert it. 
 	   */
 	  if (icmd) {
+	       /* For JPEG files, use ffmpeg to compress the image below maxmsgsize. */
+	       if (octstr_compare(octstr_imm(cformats[iindex].file_ext), octstr_imm("jpeg")) > 0 ||
+	           octstr_compare(octstr_imm(cformats[iindex].file_ext), octstr_imm("jpg")) > 0) {
+	            for (int i = 2; i <= 31; i++) { /* ffmpeg JPEG quality levels 2-31 */
+	                 cmd = octstr_format("%S | " JPGCONVERTCMD, icmd, i, tmpf);
+                     pf = popen(octstr_get_cstr(cmd), "w");
+	                 if (!pf)
+	                      goto done;
+	                 m = pclose(pf);
+					 
+	                 if (m != 0) {
+	                      mms_error(0, "mms_uaprof", NULL, "Error in ffmpeg conversion!");
+	                      goto done;
+	                 }
+
+	                 if ((s = octstr_read_file(tmpf)) != NULL) {
+						  mms_warning(0, "mms_uaprof", NULL, "File size: %l, num_mime: %i, quality: %i", octstr_len(s), num_mime_images, i);
+	                      if (octstr_len(s) < (prof->maxmsgsize / num_mime_images)) {
+							   octstr_destroy(s);
+							   octstr_destroy(icmd);
+							   goto finalizeSupport;
+						  }
+	                 }
+				}
+		   }
 	       cmd = (supported) ? octstr_format("%S > %s", icmd, tmpf) : 
 		    octstr_format("%S | " IMGCONVERTCMD,
 				  icmd, cformats[iindex].file_ext, selector,
@@ -1017,6 +1089,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
      if (n < 0 || m != 0)
 	  goto done; /* Error -- finish up. */
 
+finalizeSupport:
      if ((s = octstr_read_file(tmpf)) != NULL) {
 	  replace_body(msg, s, params_h, 
 		       supported == 1 ? cformats[iindex].content_type : cformats[oindex].content_type,
