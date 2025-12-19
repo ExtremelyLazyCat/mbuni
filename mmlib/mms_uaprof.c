@@ -631,8 +631,6 @@ static void init_format_table(void)
 /* Removes an object by making it text/plain. For now not configurable. */
 static void remove_object(MIMEEntity *m, Octstr *ctype)
 {
-     mms_warning(0, "mms_msg", NULL, "my buhhh so stankkk");
-     printf("stank buhhhh");
      List *h = mime_entity_headers(m);
      Octstr *s = octstr_format("Unsupported object (content type %S) removed", ctype);
 
