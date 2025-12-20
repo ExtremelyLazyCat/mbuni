@@ -618,7 +618,7 @@ struct {
 #define IMGRESCMD "identify -format '%%w %%h' %s:%s"
 #define IMGSCALECMD "convert -scale '%ldx%ld>' %s:%s %s:-"
 #define IMGCONVERTCMD "convert '%s:%s' '%s:%s'"
-#define JPGCONVERTCMD "ffmpeg -i - -q:v %i '%s'"
+#define JPGCONVERTCMD "ffmpeg -y -loglevel quiet -i - -f mjpeg -q:v %i '%s'"
 
 static void init_format_table(void)
 {
@@ -1002,7 +1002,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	       /* This bit of logic retains the original aspect ratio. */
 	       int convX = prof->maxres.x;
 	       int convY = prof->maxres.y;
-	       double aspect = x/y;
+	       double aspect = (double)x / y;
 
 	       /* Initially attempt to fit the image to the X-Axis. */
 	       convY = convX / aspect;
@@ -1047,14 +1047,15 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	                 }
 
 	                 if ((s = octstr_read_file(tmpf)) != NULL) {
-						  mms_warning(0, "mms_uaprof", NULL, "File size: %l, num_mime: %i, quality: %i", octstr_len(s), num_mime_images, i);
-	                      if (octstr_len(s) < (prof->maxmsgsize / num_mime_images)) {
+	                      if (octstr_len(s) < (prof->maxmsgsize / (double) num_mime_images)) {
 							   octstr_destroy(s);
 							   octstr_destroy(icmd);
 							   goto finalizeSupport;
 						  }
 	                 }
 				}
+                mms_warning(0, "mms_uaprof", NULL, "Failed to compress the image enough to meet the requested"
+                                                   " MmsMaxMessageSize! Send may fail");
 		   }
 	       cmd = (supported) ? octstr_format("%S > %s", icmd, tmpf) : 
 		    octstr_format("%S | " IMGCONVERTCMD,
@@ -1147,6 +1148,9 @@ int mms_transform_msg(MmsMsg *inmsg, MmsUaProfile *prof, MmsMsg **outmsg)
      s = mms_tobinary(*outmsg);
 
      if (octstr_len(s) > prof->maxmsgsize) {
+      mms_warning(0, "mms_uaprof", NULL, "Message exceeded requested MmsMaxMessageSize, (%ld > %ld)"
+                                         "voiding message! You can modify this value with a UAProf override",
+                                         octstr_len(s), prof->maxmsgsize);
 	  mms_destroy(*outmsg);
 	  *outmsg = NULL;
      }
