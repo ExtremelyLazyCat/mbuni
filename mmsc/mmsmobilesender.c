@@ -147,6 +147,10 @@ static int sendNotify(MmsEnvelope *e)
      time_t expiryt;
      char *prov_notify_event = NULL;
      char *rtype = NULL;
+
+	 if (settings->msize_max > 0 &&
+		 e->msize > settings->msize_max)
+	  e->msize = settings->msize_max;
      
 #if 0 /* ... because we don't want fetched messages sticking around in queue forever */           
      

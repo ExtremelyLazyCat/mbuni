@@ -79,6 +79,7 @@ typedef struct MmscSettings {
      long send_back_off;
      
      long port, mm7port, pdpPort;
+	 long msize_max;
 
      Octstr *allow_ip;
      Octstr *deny_ip;

@@ -72,6 +72,10 @@ static int  sendMsg(MmsEnvelope *e)
      MmsMsg *msg = NULL;
      time_t tstart = time(NULL);
 
+	 if (settings->msize_max > 0 &&
+         e->msize > settings->msize_max)
+	  e->msize = settings->msize_max;
+
      if (e->msgtype == MMS_MSGTYPE_SEND_REQ && 
 	 !e->bill.billed) { /* Attempt to bill if not already billed */
 	  List *l = gwlist_create();

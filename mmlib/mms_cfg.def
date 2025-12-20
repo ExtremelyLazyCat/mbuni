@@ -82,7 +82,7 @@ SINGLE_GROUP(mbuni,
 	OCTSTR(billing-module-parameters)
 	OCTSTR(billing-library)
 	OCTSTR(resolver-module-parameters)
- 	OCTSTR(resolver-library)
+	OCTSTR(resolver-library)
         OCTSTR(detokenizer-module-parameters)
         OCTSTR(detokenizer-library)
 	OCTSTR(prov-server-notify-script)
@@ -104,6 +104,7 @@ SINGLE_GROUP(mbuni,
 	OCTSTR(recvpdp-port)
 	OCTSTR(sendmms-port)
 	OCTSTR(sendmms-port-ssl)
+	OCTSTR(max-wap-msize)
 	
 	OCTSTR(mmsbox-mt-filter-library)
 	OCTSTR(mmsbox-mt-always-multipart)

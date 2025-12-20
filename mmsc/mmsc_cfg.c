@@ -107,7 +107,7 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
 
 	 m->pdpPort = -1;
      mms_cfg_get_int(cfg, grp, octstr_imm("recvpdp-port"), &m->pdpPort);
-  
+
      if (octstr_len(m->hostname) == 0)
 	  m->hostname = octstr_create("localhost");
      
@@ -239,6 +239,8 @@ MmscSettings *mms_load_mmsc_settings(Octstr *fname, List **proxyrelays, int skip
      if (!s || (m->queue_interval = atof(octstr_get_cstr(s))) <= 0)
 	  m->queue_interval = QUEUERUN_INTERVAL;
 
+	 if (mms_cfg_get_int(cfg, grp, octstr_imm("max-wap-msize"), &m->msize_max) == -1)
+	  m->msize_max = 0;
 
      octstr_destroy(s);
 
