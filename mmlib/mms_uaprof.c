@@ -779,6 +779,11 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	   octstr_get_cstr(content_type), params ? octstr_get_cstr(params) : "NULL");	  
      http_header_dump(params_h);
 #endif
+
+     if (num_mime_images == 0) {
+          num_mime_images = get_num_mime_images(msg);
+          root = true;
+     }
      
      if ((n = mime_entity_num_parts(msg)) > 0) {
 	  Octstr *startp = http_header_value(params_h, octstr_imm("start"));
@@ -789,12 +794,7 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	       List *hx = mime_entity_headers(x);
  	       Octstr *cid = _x_get_content_id(hx);
 	       int sup;
-		   
-		   if (num_mime_images == 0) {
-				num_mime_images = get_num_mime_images(x);
-				root = true;
-		   }
-		   
+
 	       debug("MMS uaprof: cid =###", 0, "%s", cid ? octstr_get_cstr(cid) : "NULL");
 	       
 	       sup = modify_msg(x, prof);
@@ -1047,6 +1047,13 @@ static int modify_msg(MIMEEntity *msg, MmsUaProfile *prof)
 	                 }
 
 	                 if ((s = octstr_read_file(tmpf)) != NULL) {
+	                      /* This isn't perfect, we're adjusting the quality of the images 
+	                       * so they can all fit within the phones requested MmsMaxMsgSize.
+	                       * It works, but other media types (audio, text, gif) are not
+	                       * accounted for, so if they are sent alongside the images, the
+	                       * final message size may exceeded the requested size, and we
+	                       * won't send a message over the requested MmsMaxMsgSize.
+	                       */
 	                      if (octstr_len(s) < (prof->maxmsgsize / (double) num_mime_images)) {
 							   octstr_destroy(s);
 							   octstr_destroy(icmd);
@@ -1148,7 +1155,7 @@ int mms_transform_msg(MmsMsg *inmsg, MmsUaProfile *prof, MmsMsg **outmsg)
      s = mms_tobinary(*outmsg);
 
      if (octstr_len(s) > prof->maxmsgsize) {
-      mms_warning(0, "mms_uaprof", NULL, "Message exceeded requested MmsMaxMessageSize, (%ld > %ld)"
+      mms_warning(0, "mms_uaprof", NULL, "Message exceeded requested MmsMaxMessageSize, (%ld > %ld) "
                                          "voiding message! You can modify this value with a UAProf override",
                                          octstr_len(s), prof->maxmsgsize);
 	  mms_destroy(*outmsg);
