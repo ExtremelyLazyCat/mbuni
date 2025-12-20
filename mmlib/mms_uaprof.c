@@ -723,7 +723,7 @@ static int format_special(MIMEEntity *m, int trans_smil, char *txtmsg, char *htm
 
 static int get_num_mime_images(MIMEEntity *msg)
 {
-     int n, i, count;
+     int n, i, count = 0;
 	 List *h = NULL;
 	 Octstr *params = NULL, *content_type = NULL;
      if ((n = mime_entity_num_parts(msg)) > 0) {
